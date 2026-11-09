@@ -17,11 +17,23 @@ nightly-2026-11-09, pnpm 9.4.0 and the committed Cargo.lock/pnpm-lock.yaml.
   cargo +nightly-2026-11-09 test --locked -p zebar monitor_state::tests
   pnpm install --frozen-lockfile
   pnpm --filter zebar --filter @zebar/settings-ui run build
-  VERSION_NUMBER=3.3.1-1 pnpm --filter @zebar/desktop exec tauri build --ci --bundles app --no-sign --config '{"version":"3.3.1-1"}'
+  VERSION_NUMBER=3.3.1-2 pnpm --filter @zebar/desktop exec tauri build --ci --bundles app --no-sign --config '{"version":"3.3.1-2"}'
 
 The regression fails when the empty-display guard is removed. No patched
 application is installed automatically. Real sleep/wake, clamshell and display
 hotplug acceptance must be completed before replacing a daily-use build.
 
-Use numeric prerelease labels (for example 3.3.1-1) for cross-platform
+Use numeric prerelease labels (for example 3.3.1-2) for cross-platform
 packaging. The MSI target rejects textual labels such as sleep.1.
+
+The three starter widgets now display the physical uplink underneath a VPN
+instead of interpreting an unknown/tunnel route as disconnected Wi-Fi.
+Unknown Wi-Fi signal strength uses a generic connected icon. Provider route
+data and networking configuration are unchanged. Address presence is used
+until the network provider exposes physical link state.
+
+  pnpm run test:network-icons
+
+This runs eight connection scenarios against all three starter templates.
+The same cases passed against the local customized widget, and its connected
+Wi-Fi icon was checked on the live installed Zebar.

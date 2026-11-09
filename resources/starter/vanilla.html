@@ -45,12 +45,28 @@
 
         // Get icon to show for current network status.
         function getNetworkIcon(networkOutput) {
-          switch (networkOutput.defaultInterface?.type) {
+          // shortcut: infer link state from addresses until the provider exposes it.
+          const networkInterface = ['wifi', 'ethernet'].includes(
+            networkOutput.defaultInterface?.type,
+          )
+            ? networkOutput.defaultInterface
+            : networkOutput.interfaces?.find(
+                i =>
+                  ['wifi', 'ethernet'].includes(i.type) &&
+                  (i.ipv4Addresses?.length ||
+                    i.ipv6Addresses?.some(a => !/^fe80:/i.test(a))),
+              ) ?? networkOutput.defaultInterface;
+          switch (networkInterface?.type) {
             case 'ethernet':
               return <i className="nf nf-md-ethernet_cable"></i>;
+            case 'tunnel':
+            case 'ppp':
             case 'proprietary_virtual':
               return <i className="nf nf-md-shield_lock_outline"></i>;
             case 'wifi':
+              if (networkOutput.defaultGateway?.signalStrength == null) {
+                return <i className="nf nf-md-wifi"></i>;
+              }
               if (networkOutput.defaultGateway?.signalStrength >= 80) {
                 return <i className="nf nf-md-wifi_strength_4"></i>;
               } else if (
@@ -70,7 +86,13 @@
               }
             default:
               return (
-                <i className="nf nf-md-wifi_strength_off_outline"></i>
+                <i
+                  className={
+                    networkInterface
+                      ? 'nf nf-md-network_outline'
+                      : 'nf nf-md-wifi_strength_off_outline'
+                  }
+                ></i>
               );
           }
         }

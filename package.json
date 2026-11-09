@@ -10,7 +10,8 @@
     "dev": "pnpm run --filter zebar build && pnpm run --parallel dev",
     "dev:local": "pnpm run --filter zebar build && pnpm run --parallel dev:local",
     "format": "prettier --write . && pnpm run -r format",
-    "lint": "prettier --check . && pnpm run -r lint"
+    "lint": "prettier --check . && pnpm run -r lint && pnpm run test:network-icons",
+    "test:network-icons": "node tests/network-icons.cjs"
   },
   "prettier": "@glzr/style-guide/prettier",
   "dependencies": {},
