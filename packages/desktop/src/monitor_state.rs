@@ -72,18 +72,31 @@ impl MonitorState {
         interval.tick().await;
         let new_monitors = Self::available_monitors(&app_handle);
 
-        let should_update = {
-          let current_monitors = monitors.read().await;
-          *current_monitors != new_monitors
-        };
-
-        if should_update {
-          info!("Detected change in monitors.");
-          *monitors.write().await = new_monitors.clone();
-          let _ = change_tx.send(new_monitors);
-        }
+        Self::update_monitors(&monitors, &change_tx, new_monitors).await;
       }
     });
+  }
+
+  /// Publishes a settled monitor change, retaining windows while displays
+  /// sleep.
+  async fn update_monitors(
+    monitors: &RwLock<Vec<Monitor>>,
+    change_tx: &broadcast::Sender<Vec<Monitor>>,
+    new_monitors: Vec<Monitor>,
+  ) {
+    // macOS excludes sleeping displays; an empty list must not close
+    // widgets.
+    if new_monitors.is_empty() {
+      return;
+    }
+    let mut current_monitors = monitors.write().await;
+    if *current_monitors == new_monitors {
+      return;
+    }
+    *current_monitors = new_monitors.clone();
+    drop(current_monitors);
+    info!("Detected change in monitors.");
+    let _ = change_tx.send(new_monitors);
   }
 
   /// Gets available monitors on the system.
@@ -160,5 +173,52 @@ impl MonitorState {
         .filter(|monitor| monitor.name.as_deref() == Some(name))
         .collect(),
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use tokio::sync::broadcast::error::TryRecvError;
+
+  use super::*;
+
+  fn monitor(width: u32) -> Monitor {
+    Monitor {
+      name: Some("test".into()),
+      is_primary: true,
+      x: 0,
+      y: 0,
+      width,
+      height: 1440,
+      scale_factor: 1.0,
+    }
+  }
+
+  #[tokio::test]
+  async fn sleep_wake_keeps_widgets_until_topology_really_changes() {
+    let before = vec![monitor(3440)];
+    let monitors = RwLock::new(before.clone());
+    let (tx, mut rx) = broadcast::channel(4);
+
+    MonitorState::update_monitors(&monitors, &tx, Vec::new()).await;
+    assert_eq!(*monitors.read().await, before);
+    assert_eq!(rx.try_recv(), Err(TryRecvError::Empty));
+
+    MonitorState::update_monitors(&monitors, &tx, before).await;
+    assert_eq!(rx.try_recv(), Err(TryRecvError::Empty));
+
+    let changed = vec![monitor(1920)];
+    MonitorState::update_monitors(&monitors, &tx, changed.clone()).await;
+    assert_eq!(*monitors.read().await, changed);
+    assert_eq!(rx.try_recv().expect("monitor change"), changed);
+  }
+
+  #[tokio::test]
+  async fn first_monitor_after_an_empty_start_is_published() {
+    let monitors = RwLock::new(Vec::new());
+    let (tx, mut rx) = broadcast::channel(4);
+    let connected = vec![monitor(3440)];
+    MonitorState::update_monitors(&monitors, &tx, connected.clone()).await;
+    assert_eq!(rx.try_recv().expect("first monitor"), connected);
   }
 }
