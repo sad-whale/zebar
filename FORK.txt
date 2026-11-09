@@ -1,0 +1,24 @@
+macOS sleep fixes for Zebar
+
+Application base: upstream v3.3.1.
+The runtime changes only retain the last non-empty display topology during
+sleep and preserve normal change notifications after wake. Regression tests
+cover sleep/wake, actual geometry changes and the first connected display.
+
+Based on glzr-io/zebar#324 (8caf4878635fec133912587b82f651554727be2b).
+
+The build workflow, Tauri CLI development dependency and pnpm lockfile match
+the fork's inherited upstream main branch. This keeps builds possible without
+upstream signing credentials; application dependencies are unchanged.
+
+Validated locally with rustc 1.102.0-nightly (5b7b37aef 2026-11-08), from
+nightly-2026-11-09, pnpm 9.4.0 and the committed Cargo.lock/pnpm-lock.yaml.
+
+  cargo +nightly-2026-11-09 test --locked -p zebar monitor_state::tests
+  pnpm install --frozen-lockfile
+  pnpm --filter zebar --filter @zebar/settings-ui run build
+  pnpm --filter @zebar/desktop exec tauri build --ci --bundles app --no-sign
+
+The regression fails when the empty-display guard is removed. No patched
+application is installed automatically. Real sleep/wake, clamshell and display
+hotplug acceptance must be completed before replacing a daily-use build.
