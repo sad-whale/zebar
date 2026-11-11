@@ -165,7 +165,7 @@ impl ProviderManager {
         app_handle: app_handle.clone(),
         provider_refs: Arc::new(Mutex::new(HashMap::new())),
         emit_cache: Arc::new(Mutex::new(HashMap::new())),
-        sysinfo: Arc::new(Mutex::new(sysinfo::System::new_all())),
+        sysinfo: Arc::new(Mutex::new(sysinfo::System::new())),
         emit_tx,
       }),
       emit_rx,
@@ -438,4 +438,46 @@ where
   }
 
   state.end()
+}
+
+#[cfg(test)]
+mod tests {
+  use std::time::Duration;
+
+  use super::*;
+  use crate::providers::cpu::CpuProviderConfig;
+
+  #[tokio::test]
+  async fn cpu_sampling_does_not_need_a_process_inventory() {
+    let sysinfo = Arc::new(Mutex::new(sysinfo::System::new()));
+    let (emit_tx, mut emit_rx) = mpsc::unbounded_channel();
+    let (_, async_rx) = mpsc::channel(1);
+    let (stop_tx, sync_rx) = crossbeam::channel::bounded(1);
+    let common = CommonProviderState {
+      emitter: ProviderEmitter {
+        emit_tx,
+        config_hash: "cpu-test".into(),
+        prev_emission: None,
+      },
+      input: ProviderInput { async_rx, sync_rx },
+      sysinfo: sysinfo.clone(),
+    };
+    let task = task::spawn_blocking(move || {
+      CpuProvider::new(
+        CpuProviderConfig {
+          refresh_interval: 60_000,
+        },
+        common,
+      )
+      .start_sync();
+    });
+    let output =
+      tokio::time::timeout(Duration::from_secs(5), emit_rx.recv()).await;
+    stop_tx.send(ProviderInputMsg::Stop).unwrap();
+    task.await.unwrap();
+    assert!(
+      matches!(output.unwrap().unwrap().result, Ok(ProviderOutput::Cpu(cpu)) if cpu.logical_core_count > 0 && cpu.physical_core_count > 0)
+    );
+    assert!(sysinfo.lock().await.processes().is_empty());
+  }
 }

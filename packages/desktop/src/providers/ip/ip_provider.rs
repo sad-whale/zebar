@@ -14,6 +14,9 @@ use crate::{
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct IpProviderConfig {
+  #[serde(
+    deserialize_with = "crate::common::deserialize_refresh_interval"
+  )]
   pub refresh_interval: u64,
 }
 

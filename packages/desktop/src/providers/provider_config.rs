@@ -36,3 +36,43 @@ pub enum ProviderConfig {
   #[cfg(windows)]
   Keyboard(KeyboardProviderConfig),
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn polling_configs_require_positive_integer_intervals() {
+    let providers = [
+      "battery",
+      "cpu",
+      "host",
+      "ip",
+      "memory",
+      "disk",
+      "network",
+      "weather",
+      #[cfg(windows)]
+      "keyboard",
+    ];
+    for provider in providers {
+      for invalid in [
+        serde_json::json!(0),
+        serde_json::json!(-1),
+        serde_json::json!(0.5),
+      ] {
+        let config = serde_json::json!({"type": provider, "refreshInterval": invalid});
+        assert!(
+          serde_json::from_value::<ProviderConfig>(config).is_err(),
+          "{provider}"
+        );
+      }
+      let config =
+        serde_json::json!({"type": provider, "refreshInterval": 1});
+      assert!(
+        serde_json::from_value::<ProviderConfig>(config).is_ok(),
+        "{provider}"
+      );
+    }
+  }
+}

@@ -69,6 +69,24 @@ jobs:
       - run: pnpm i
       - run: pnpm run --filter zebar --filter @zebar/settings-ui build
 
+      - name: Test native providers (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: cargo test --locked -p zebar -p zebar-native
+
+      - name: Package native bar (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          NATIVE_APP=$(python3 packages/native-macos/build_app.py)
+          ditto -c -k --keepParent "$NATIVE_APP" zebar-native.zip
+
+      - name: Upload native bar
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: zebar-native-macos-${{ runner.arch }}
+          if-no-files-found: error
+          path: zebar-native.zip
+
       - name: Set version number
         shell: bash
         run: |

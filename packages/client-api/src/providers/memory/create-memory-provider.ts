@@ -10,7 +10,11 @@ import type {
 
 const memoryProviderConfigSchema = z.object({
   type: z.literal('memory'),
-  refreshInterval: z.coerce.number().default(5 * 1000),
+  refreshInterval: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5 * 1000),
 });
 
 export function createMemoryProvider(

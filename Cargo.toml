@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["packages/desktop", "crates/*"]
+members = ["packages/desktop", "packages/native-macos", "crates/*"]
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

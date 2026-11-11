@@ -1,5 +1,7 @@
 import {
   WmClient,
+  type Container,
+  type Window,
   WmEventType,
   type BindingModesChangedEvent,
   type FocusChangedEvent,
@@ -77,6 +79,11 @@ export function createGlazeWmProvider(
             state = { ...state, tilingDirection: e.newTilingDirection };
             break;
           }
+          case WmEventType.WINDOW_MANAGED:
+          case WmEventType.WINDOW_UNMANAGED:
+          case WmEventType.MONITOR_ADDED:
+          case WmEventType.MONITOR_REMOVED:
+          case WmEventType.MONITOR_UPDATED:
           case WmEventType.WORKSPACE_ACTIVATED:
           case WmEventType.WORKSPACE_DEACTIVATED:
           case WmEventType.WORKSPACE_UPDATED: {
@@ -87,6 +94,8 @@ export function createGlazeWmProvider(
             state = { ...state, isPaused: e.isPaused };
             break;
           }
+          default:
+            return;
         }
 
         queue.output(state);
@@ -132,7 +141,7 @@ export function createGlazeWmProvider(
         };
 
         const { monitors: glazeWmMonitors } = await client.queryMonitors();
-        const { windows: glazeWmWindows } = await client.queryWindows();
+        const glazeWmWindows = glazeWmMonitors.flatMap(windowsOf);
 
         // Get GlazeWM monitor that corresponds to the widget's monitor.
         const currentGlazeWmMonitor = glazeWmMonitors.reduce((a, b) =>
@@ -178,4 +187,10 @@ export function createGlazeWmProvider(
       client.closeConnection();
     };
   });
+}
+
+function windowsOf(container: Container): Window[] {
+  return container.type === 'window'
+    ? [container]
+    : container.children.flatMap(windowsOf);
 }

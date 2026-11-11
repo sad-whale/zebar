@@ -10,7 +10,11 @@ import type {
 
 const diskProviderConfigSchema = z.object({
   type: z.literal('disk'),
-  refreshInterval: z.coerce.number().default(60 * 1000),
+  refreshInterval: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 1000),
 });
 
 export function createDiskProvider(

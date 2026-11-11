@@ -37,3 +37,29 @@ until the network provider exposes physical link state.
 This runs eight connection scenarios against all three starter templates.
 The same cases passed against the local customized widget, and its connected
 Wi-Fi icon was checked on the live installed Zebar.
+
+Local audit: polling intervals must be positive integers at the client and
+Rust deserialization boundary. Synchronous timers use crossbeam's bounded
+tick channel, which skips missed ticks without a catch-up loop. Network
+rates multiply before division and saturate safely at the output boundary.
+The GlazeWM provider derives windows from one monitor-tree snapshot, updates
+on window/monitor lifecycle events, and ignores unrelated redraw triggers.
+
+  cargo +nightly-2026-11-09 test --locked -p zebar
+  pnpm run test:glazewm-provider
+
+Native macOS edition (packages/native-macos): Rust/AppKit panels replace the
+WebView runtime for the personal GlazeWM bar. One IPC connection is shared
+by all displays. Main-queue updates are coalesced and unchanged models do
+not rebuild views. CPU/memory/battery/network sampling stays off the UI
+thread. Volume uses CoreAudio; Music/Spotify use native ScriptingBridge.
+There is no JS, Babel, Node.js or osascript process in this runtime.
+The HTML widget/marketplace runtime remains available as the desktop target;
+arbitrary HTML widgets are not rendered by the native edition.
+
+  cargo test --locked -p zebar-native
+  cargo clippy --locked -p zebar-native --all-targets -- -D warnings
+  python3 packages/native-macos/build_app.py
+
+The packaging command only writes a signed artifact under target/native.noindex.
+It does not overwrite /Applications or user configuration.

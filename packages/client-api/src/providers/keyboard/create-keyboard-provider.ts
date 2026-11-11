@@ -10,7 +10,7 @@ import type {
 
 const keyboardProviderConfigSchema = z.object({
   type: z.literal('keyboard'),
-  refreshInterval: z.coerce.number().default(1000),
+  refreshInterval: z.coerce.number().int().positive().default(1000),
 });
 
 export function createKeyboardProvider(

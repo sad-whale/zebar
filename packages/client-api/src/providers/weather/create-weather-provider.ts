@@ -12,7 +12,11 @@ const weatherProviderConfigSchema = z.object({
   type: z.literal('weather'),
   latitude: z.coerce.number().optional(),
   longitude: z.coerce.number().optional(),
-  refreshInterval: z.coerce.number().default(60 * 60 * 1000),
+  refreshInterval: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60 * 1000),
 });
 
 export function createWeatherProvider(

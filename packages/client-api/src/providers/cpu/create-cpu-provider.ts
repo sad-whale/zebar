@@ -10,7 +10,11 @@ import type {
 
 const cpuProviderConfigSchema = z.object({
   type: z.literal('cpu'),
-  refreshInterval: z.coerce.number().default(5 * 1000),
+  refreshInterval: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5 * 1000),
 });
 
 export function createCpuProvider(config: CpuProviderConfig): CpuProvider {

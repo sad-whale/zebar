@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use serde::{Deserialize, Serialize};
 use sysinfo::Networks;
 
@@ -16,6 +18,9 @@ use crate::{
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkProviderConfig {
+  #[serde(
+    deserialize_with = "crate::common::deserialize_refresh_interval"
+  )]
   pub refresh_interval: u64,
 }
 
@@ -32,6 +37,7 @@ pub struct NetworkProvider {
   config: NetworkProviderConfig,
   common: CommonProviderState,
   netinfo: Networks,
+  last_sample_at: Instant,
 }
 
 impl NetworkProvider {
@@ -43,22 +49,25 @@ impl NetworkProvider {
       config,
       common,
       netinfo: Networks::new_with_refreshed_list(),
+      last_sample_at: Instant::now(),
     }
   }
 
   fn run_interval(&mut self) -> anyhow::Result<NetworkOutput> {
     self.netinfo.refresh();
+    let sample_at = Instant::now();
+    let elapsed = sample_at.duration_since(self.last_sample_at);
+    self.last_sample_at = sample_at;
 
     let interfaces = netdev::get_interfaces();
     let default_interface = netdev::get_default_interface().ok();
 
     let (received, total_received) = Self::bytes_received(&self.netinfo);
-    let received_per_sec = received / self.config.refresh_interval * 1000;
+    let received_per_sec = bytes_per_second(received, elapsed);
 
     let (transmitted, total_transmitted) =
       Self::bytes_transmitted(&self.netinfo);
-    let transmitted_per_sec =
-      transmitted / self.config.refresh_interval * 1000;
+    let transmitted_per_sec = bytes_per_second(transmitted, elapsed);
 
     Ok(NetworkOutput {
       default_interface: default_interface
@@ -216,5 +225,31 @@ impl Provider for NetworkProvider {
         }
       }
     }
+  }
+}
+
+fn bytes_per_second(bytes: u64, elapsed: Duration) -> u64 {
+  if elapsed.is_zero() {
+    return 0;
+  }
+  u64::try_from(u128::from(bytes) * 1_000_000_000 / elapsed.as_nanos())
+    .unwrap_or(u64::MAX)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn traffic_rates_preserve_fractional_intervals_and_saturate() {
+    let rate =
+      |bytes, ms| bytes_per_second(bytes, Duration::from_millis(ms));
+    assert_eq!(rate(500, 5000), 100);
+    assert_eq!(rate(1000, 3000), 333);
+    assert_eq!(rate(1500, 500), 3000);
+    assert_eq!(rate(u64::MAX, 1000), u64::MAX);
+    assert_eq!(rate(u64::MAX, 1), u64::MAX);
+    assert_eq!(rate(1000, 0), 0);
+    assert_eq!(bytes_per_second(1, Duration::from_micros(500)), 2000);
   }
 }

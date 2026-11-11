@@ -1,19 +1,32 @@
-use std::time::{Duration, Instant};
+use std::{
+  num::NonZeroU64,
+  time::{Duration, Instant},
+};
+
+use serde::{Deserialize, Deserializer};
+
+pub fn deserialize_refresh_interval<'de, D>(
+  deserializer: D,
+) -> Result<u64, D::Error>
+where
+  D: Deserializer<'de>,
+{
+  NonZeroU64::deserialize(deserializer).map(NonZeroU64::get)
+}
 
 /// An interval timer for synchronous contexts using crossbeam.
 ///
 /// For use with crossbeam's `select!` macro.
 pub struct SyncInterval {
-  interval: Duration,
-  next_tick: Instant,
+  ticks: crossbeam::channel::Receiver<Instant>,
   is_first: bool,
 }
 
 impl SyncInterval {
   pub fn new(interval_ms: u64) -> Self {
+    assert!(interval_ms > 0, "Refresh interval must be positive.");
     Self {
-      interval: Duration::from_millis(interval_ms),
-      next_tick: Instant::now(),
+      ticks: crossbeam::channel::tick(Duration::from_millis(interval_ms)),
       is_first: true,
     }
   }
@@ -24,21 +37,33 @@ impl SyncInterval {
       // Emit immediately on the first tick.
       self.is_first = false;
       crossbeam::channel::after(Duration::from_secs(0))
-    } else if let Some(wait_duration) =
-      self.next_tick.checked_duration_since(Instant::now())
-    {
-      // Wait normally until the next tick.
-      let timer = crossbeam::channel::after(wait_duration);
-      self.next_tick += self.interval;
-      timer
     } else {
-      // We're behind - skip missed ticks to catch up.
-      while self.next_tick <= Instant::now() {
-        self.next_tick += self.interval;
-      }
-
-      crossbeam::channel::after(self.next_tick - Instant::now())
+      self.ticks.clone()
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn first_tick_is_immediate_and_later_ticks_wait() {
+    let mut interval = SyncInterval::new(60_000);
+    interval
+      .tick()
+      .recv_timeout(Duration::from_secs(1))
+      .unwrap();
+    assert_eq!(
+      interval.tick().try_recv(),
+      Err(crossbeam::channel::TryRecvError::Empty)
+    );
+  }
+
+  #[test]
+  #[should_panic(expected = "Refresh interval must be positive.")]
+  fn zero_interval_cannot_spin_forever() {
+    SyncInterval::new(0);
   }
 }
 

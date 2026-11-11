@@ -9,7 +9,7 @@ import type {
 
 const dateProviderConfigSchema = z.object({
   type: z.literal('date'),
-  refreshInterval: z.coerce.number().default(1000),
+  refreshInterval: z.coerce.number().int().positive().default(1000),
   timezone: z.string().default('local'),
   locale: z.string().optional(),
   formatting: z.string().default('EEE	d MMM t'),

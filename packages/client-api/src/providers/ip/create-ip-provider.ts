@@ -10,7 +10,11 @@ import type {
 
 const ipProviderConfigSchema = z.object({
   type: z.literal('ip'),
-  refreshInterval: z.coerce.number().default(60 * 60 * 1000),
+  refreshInterval: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60 * 1000),
 });
 
 export function createIpProvider(config: IpProviderConfig): IpProvider {
